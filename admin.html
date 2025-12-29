@@ -232,17 +232,17 @@
 </div>
 
 <!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
-<!-- Add Firebase Authentication SDK -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-<!-- Tu configuración -->
+<!-- Tu configuración de Firebase y inicialización de 'auth' -->
 <script src="firebase.js"></script>
 
 <script>
-// Make sure firebase.js initializes the app, then get the auth instance
-const auth = firebase.auth(); // This line initializes the 'auth' variable
+// Make sure firebase-app.js is loaded first, then initialize the auth object
+const auth = firebase.auth(); // This line initializes the auth service
 
 function login(){
   const email = document.getElementById("email").value;

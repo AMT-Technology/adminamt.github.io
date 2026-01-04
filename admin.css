@@ -412,3 +412,59 @@ textarea {
   border-radius: 6px;
  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
+
+
+
+
+
+
+
+
+/* Estilos adicionales para admin.css */
+
+.btn-view {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.btn-view:hover {
+  background: #059669;
+}
+
+.table-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+/* Asegurar que la tabla tenga suficiente espacio */
+.apps-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.apps-table th {
+  background: #f8fafc;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.apps-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.apps-table tr:hover {
+  background: #f1f5f9;
+}

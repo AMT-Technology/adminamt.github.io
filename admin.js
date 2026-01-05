@@ -95,14 +95,20 @@ function loadMoreApps() {
 }
 
 // =======================================================
-// RENDERIZADO DE FILAS
+// RENDERIZADO DE FILAS (MODIFICADO PARA USAR SLUG)
 // =======================================================
 function renderApps(items, append = false) {
   let html = items.map(a => {
+    // Usar slug en la URL, si no existe, usar ID como respaldo
+    const appIdentifier = a.slug || a.id;
     return `
       <tr id="app-row-${a.id}">
         <td><img src="${a.icono || a.imagen || ''}" class="table-icon" alt="icono"></td>
-        <td>${escapeHtml(a.nombre || '')}</td>
+        <td>
+          <a href="app-detail.html?app=${appIdentifier}" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: 500;">
+            ${escapeHtml(a.nombre || '')}
+          </a>
+        </td>
         <td>${escapeHtml(a.categoria || '')}</td>
         <td>${escapeHtml(a.version || '')}</td>
         <td>
@@ -259,7 +265,7 @@ function makeSlug(text) {
 
  
 // =======================================================
-// GUARDAR / EDITAR APP (CORREGIDO)
+// GUARDAR / EDITAR APP (MODIFICADO PARA USAR SLUG EN URL)
 // =======================================================
 async function guardarApp() {
   const btn = document.getElementById("subirBtn");
@@ -274,7 +280,18 @@ async function guardarApp() {
   if (!nombreVal || !descripcionVal || !versionVal) {
     alert("Por favor completa: Nombre, Descripción y Versión");
     return;
-  } 
+  }
+
+  // Función para crear slug
+  function createSlug(text) {
+    return text
+      .toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
+      .replace(/[^a-z0-9]+/g, "-") // Reemplazar caracteres no alfanuméricos por guiones
+      .replace(/^-+|-+$/g, "") // Eliminar guiones al inicio y final
+      .substring(0, 100); // Limitar longitud
+  }
+
   // Cambiar estado
   btn.disabled = true;
   btn.textContent = "GUARDANDO...";
@@ -307,9 +324,25 @@ async function guardarApp() {
       mediafireUrl: document.getElementById("mediafireUrl").value.trim(),
       fecha: Date.now()
     };
-if (!editId) {
-  campos.slug = makeSlug(nombreVal);
-}
+
+    // Generar slug a partir del nombre
+    campos.slug = createSlug(nombreVal);
+
+    // Si estamos editando, mantener el mismo slug (o regenerarlo si se cambió el nombre)
+    // Esto es importante para mantener URLs consistentes
+    if (editId) {
+      // Verificar si ya existe un slug para esta app
+      const doc = await db.collection("apps").doc(editId).get();
+      if (doc.exists && doc.data().slug) {
+        // Si el nombre cambió significativamente, actualizar el slug
+        const oldNombre = doc.data().nombre;
+        if (nombreVal.toLowerCase() !== oldNombre.toLowerCase()) {
+          campos.slug = createSlug(nombreVal);
+        } else {
+          campos.slug = doc.data().slug;
+        }
+      }
+    }
 
     // Procesar capturas
     const capturasText = document.getElementById("capturasUrl").value.trim();
@@ -358,7 +391,24 @@ if (!editId) {
       campos.id = id;
     } else {
       campos.id = id;
-    }  
+    }
+
+    // Verificar que el slug sea único
+    if (campos.slug) {
+      const slugQuery = await db.collection("apps")
+        .where("slug", "==", campos.slug)
+        .limit(1)
+        .get();
+      
+      if (!slugQuery.empty) {
+        const existingDoc = slugQuery.docs[0];
+        // Si encontramos un documento con el mismo slug pero diferente ID
+        if (existingDoc.id !== id) {
+          // Agregar ID al final para hacerlo único
+          campos.slug = campos.slug + "-" + id.substring(0, 8);
+        }
+      }
+    }
 
     // Guardar en Firestore
     await db.collection("apps").doc(id).set(campos, { merge: true });
@@ -401,7 +451,6 @@ if (!editId) {
     }, 3000);
   }
 }
-
 // =======================================================
 // LIMPIAR FORMULARIO
 // =======================================================

@@ -99,13 +99,15 @@ function loadMoreApps() {
 // =======================================================
 function renderApps(items, append = false) {
   let html = items.map(a => {
-    // Usar slug en la URL, si no existe, usar ID como respaldo
-    const appIdentifier = a.slug || a.id;
+    // Usar slug si existe, si no, usar ID como fallback
+    const appSlug = a.slug || a.id;
     return `
       <tr id="app-row-${a.id}">
         <td><img src="${a.icono || a.imagen || ''}" class="table-icon" alt="icono"></td>
         <td>
-          <a href="app-detail.html?app=${appIdentifier}" target="_blank" style="color: #3b82f6; text-decoration: none; font-weight: 500;">
+          <a href="app-detail.html?app=${encodeURIComponent(appSlug)}" 
+             target="_blank" 
+             class="app-link">
             ${escapeHtml(a.nombre || '')}
           </a>
         </td>
@@ -286,10 +288,12 @@ async function guardarApp() {
   function createSlug(text) {
     return text
       .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
-      .replace(/[^a-z0-9]+/g, "-") // Reemplazar caracteres no alfanuméricos por guiones
-      .replace(/^-+|-+$/g, "") // Eliminar guiones al inicio y final
-      .substring(0, 100); // Limitar longitud
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 100);
   }
 
   // Cambiar estado
@@ -325,23 +329,58 @@ async function guardarApp() {
       fecha: Date.now()
     };
 
-    // Generar slug a partir del nombre
-    campos.slug = createSlug(nombreVal);
-
-    // Si estamos editando, mantener el mismo slug (o regenerarlo si se cambió el nombre)
-    // Esto es importante para mantener URLs consistentes
+    // Generar slug
+    const newSlug = createSlug(nombreVal);
+    
     if (editId) {
-      // Verificar si ya existe un slug para esta app
+      // Si estamos editando, obtener el slug actual
       const doc = await db.collection("apps").doc(editId).get();
-      if (doc.exists && doc.data().slug) {
-        // Si el nombre cambió significativamente, actualizar el slug
-        const oldNombre = doc.data().nombre;
-        if (nombreVal.toLowerCase() !== oldNombre.toLowerCase()) {
-          campos.slug = createSlug(nombreVal);
-        } else {
-          campos.slug = doc.data().slug;
-        }
+      if (doc.exists) {
+        campos.slug = doc.data().slug || newSlug;
+      } else {
+        campos.slug = newSlug;
       }
+    } else {
+      // Si es nueva app, generar nuevo slug
+      campos.slug = newSlug;
+    }
+
+    // Verificar unicidad del slug
+    const slugQuery = await db.collection("apps")
+      .where("slug", "==", campos.slug)
+      .get();
+    
+    let slugIsUnique = true;
+    slugQuery.forEach(doc => {
+      if (doc.id !== editId) {
+        slugIsUnique = false;
+      }
+    });
+    
+    // Si el slug ya existe y no es la misma app, agregar sufijo
+    if (!slugIsUnique) {
+      let counter = 1;
+      let uniqueSlug = campos.slug;
+      
+      while (true) {
+        const checkQuery = await db.collection("apps")
+          .where("slug", "==", uniqueSlug)
+          .get();
+        
+        let exists = false;
+        checkQuery.forEach(doc => {
+          if (doc.id !== editId) {
+            exists = true;
+          }
+        });
+        
+        if (!exists) break;
+        
+        counter++;
+        uniqueSlug = `${campos.slug}-${counter}`;
+      }
+      
+      campos.slug = uniqueSlug;
     }
 
     // Procesar capturas
@@ -391,23 +430,6 @@ async function guardarApp() {
       campos.id = id;
     } else {
       campos.id = id;
-    }
-
-    // Verificar que el slug sea único
-    if (campos.slug) {
-      const slugQuery = await db.collection("apps")
-        .where("slug", "==", campos.slug)
-        .limit(1)
-        .get();
-      
-      if (!slugQuery.empty) {
-        const existingDoc = slugQuery.docs[0];
-        // Si encontramos un documento con el mismo slug pero diferente ID
-        if (existingDoc.id !== id) {
-          // Agregar ID al final para hacerlo único
-          campos.slug = campos.slug + "-" + id.substring(0, 8);
-        }
-      }
     }
 
     // Guardar en Firestore
